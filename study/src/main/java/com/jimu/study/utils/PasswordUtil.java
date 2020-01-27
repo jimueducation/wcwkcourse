@@ -11,7 +11,7 @@ import java.util.Random;
  */
 public class PasswordUtil {
 
-    public static String getSalt(){
+    public static String getSalt() {
         Random r = new Random();
         StringBuilder sb = new StringBuilder(16);
         sb.append(r.nextInt(99999999)).append(r.nextInt(99999999));
@@ -24,14 +24,14 @@ public class PasswordUtil {
         return sb.toString();
     }
 
-    public static String encode(String password, String salt){
+    public static String encode(String password, String salt) {
         return new Md5Hash(password, salt, 1).toHex();
     }
 
-    public static String orderNum(){
-        StringBuilder orderNum = new StringBuilder(new SimpleDateFormat("yyyyMMddHHmm").format(new Date()));
+    public static String orderNum() {
+        StringBuilder orderNum = new StringBuilder(new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
         Random random=new Random();
-        for(int i = 0; i < 4; i++){
+        for (int i = 0; i < 4; i++) {
             orderNum.append(random.nextInt(10));
         }
         return orderNum.toString();

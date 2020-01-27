@@ -9,6 +9,7 @@ import com.jimu.study.model.vo.CourseList;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -26,4 +27,20 @@ public interface CourseMapper extends BaseMapper<Course> {
      */
     @Select("select course_id, course_name, course_icon, study_num, course_price, course_num, is_over from course ${ew.customSqlSegment}")
     List<CourseList> searchCourse(@Param(Constants.WRAPPER) Wrapper query, IPage<CourseList> page);
+
+    @Select({"<script>",
+            "select course_id, course_name, course_icon, study_num, course_price, course_num, is_over from course",
+            "<if test='typeId != 0'>where type_id = #{typeId}</if>",
+            "limit #{start}, #{size}",
+            "</script>"})
+    List<CourseList> selectCourseList(Integer typeId, Integer start, Integer size);
+
+    @Update("update course set course_label = 0")
+    Integer emptyLabel();
+
+    @Update("update course set course_label = 2 ${ew.customSqlSegment}")
+    Integer updateNewest(@Param(Constants.WRAPPER) Wrapper query);
+
+    @Update("update course set course_label = 3 order by study_num limit 100")
+    Integer updateHotest();
 }

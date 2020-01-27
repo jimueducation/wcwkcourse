@@ -37,6 +37,8 @@ public class ScheduledTask {
     }
 
     private void updateNewest(){
+        courseService.updateNewest();
+        courseService.updateHotest();
         newestCourse = courseService.newestCourse();
     }
 

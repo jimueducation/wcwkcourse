@@ -1,6 +1,7 @@
 package com.jimu.study.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.jimu.study.common.HttpResult;
 import com.jimu.study.model.CourseType;
 import com.jimu.study.service.CourseTypeService;
 import io.swagger.annotations.ApiOperation;
@@ -24,8 +25,8 @@ public class CourseTypeController {
 
     @ApiOperation("查找课程分类")
     @GetMapping("/findAllCourseType")
-    public List<Map<String, Object>> findAllCourseType(){
+    public HttpResult<List<CourseType>> findAllCourseType() {
         QueryWrapper<CourseType> qw = new QueryWrapper<>();
-        return courseTypeService.findAllCourseType(qw);
+        return HttpResult.ok(courseTypeService.findAllCourseType(qw));
     }
 }

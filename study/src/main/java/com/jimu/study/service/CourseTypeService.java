@@ -19,5 +19,5 @@ public interface CourseTypeService extends IService<CourseType> {
     Integer updateCourseType(CourseType courseType);
 
     /**查找所有分类*/
-    List<Map<String, Object>> findAllCourseType(QueryWrapper<CourseType> qw);
+    List<CourseType> findAllCourseType(QueryWrapper<CourseType> qw);
 }

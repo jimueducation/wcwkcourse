@@ -1,10 +1,12 @@
 package com.jimu.study.realm;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.jimu.study.common.JwtToken;
 import com.jimu.study.model.Users;
 import com.jimu.study.model.VipType;
 import com.jimu.study.service.UsersService;
 import com.jimu.study.service.VipTypeService;
+import com.jimu.study.utils.JwtUtil;
 import org.apache.shiro.authc.*;
 import org.apache.shiro.authz.AuthorizationException;
 import org.apache.shiro.authz.AuthorizationInfo;
@@ -27,36 +29,42 @@ public class UserRealm extends AuthorizingRealm {
     @Autowired
     private VipTypeService vipTypeService;
 
+    @Override
+    public boolean supports(AuthenticationToken token) {
+        return token instanceof JwtToken;
+    }
+
     /** 认证 */
     @Override
     protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken authenticationToken) throws AuthenticationException {
-        UsernamePasswordToken mtoken = (UsernamePasswordToken) authenticationToken;
-        String username = mtoken.getUsername();
-        if(username == null){
+        String token = (String) authenticationToken.getCredentials();
+        String username = JwtUtil.getUsername(token);
+        if (username == null) {
             throw new AccountException("没接收到用户名");
         }
         QueryWrapper<Users> qw = new QueryWrapper<>();
         qw.eq("users_name", username);
-        List<Users> user = usersService.findUserList(qw);
-        if(user.isEmpty()){
+        Users user = usersService.getOne(qw);
+        if (user == null) {
             throw new UnknownAccountException("没找到用户");
         }
-        SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(username, user.get(0).getUsersPassword(), getName());
-        info.setCredentialsSalt(ByteSource.Util.bytes(user.get(0).getUsersSalt()));
-        return info;
+        if (!JwtUtil.verify(token, username, user.getUsersPassword())) {
+            throw new AuthenticationException("Username or password error");
+        }
+        return new SimpleAuthenticationInfo(token, token, "user_realm");
     }
 
     /** 授权 */
     @Override
     protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principalCollection) {
-        if(principalCollection == null){
+        if (principalCollection == null) {
             throw new AuthorizationException("未找到请求体");
         }
-        String username = (String) getAvailablePrincipal(principalCollection);
+        String username = JwtUtil.getUsername(principalCollection.toString());
         QueryWrapper<Users> qw = new QueryWrapper<>();
         qw.eq("users_name", username);
-        List<Users> users = usersService.findUserList(qw);
-        VipType vipType = vipTypeService.findVipById(users.get(0).getVipId());
+        Users user = usersService.getOne(qw);
+        VipType vipType = vipTypeService.findVipById(user.getVipId());
         SimpleAuthorizationInfo info = new SimpleAuthorizationInfo();
         info.addStringPermission(vipType.getVipName());
         return info;

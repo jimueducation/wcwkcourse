@@ -43,4 +43,7 @@ public class Course {
     @ApiModelProperty(value = "学习人数", required = true, notes = "默认为0")
     private Integer studyNum;
 
+    @ApiModelProperty("课程标签")
+    private Integer courseLabel;
+
 }

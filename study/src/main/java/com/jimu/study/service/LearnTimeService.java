@@ -9,7 +9,7 @@ import com.jimu.study.model.LearnTime;
 public interface LearnTimeService extends IService<LearnTime> {
 
     /**修改时间*/
-    Boolean updateTime(Integer time, Integer type);
+    Boolean updateTime(Integer time, Integer type, Integer usersId);
 
     /**返回时间*/
     LearnTime findTime(Integer usersId);

@@ -37,7 +37,7 @@ public class Users {
     private String usersRealname;
 
     @ApiModelProperty(value = "用户性别", notes = "0为保密，1为男，2为女，默认为0")
-    private Integer usersSex = UserSexEnum.SECRET.getSex();
+    private Integer usersSex;
 
     @ApiModelProperty("用户出生日期")
     private Date usersBirth;

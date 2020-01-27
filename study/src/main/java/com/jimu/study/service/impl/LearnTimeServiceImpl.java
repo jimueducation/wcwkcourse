@@ -20,18 +20,14 @@ public class LearnTimeServiceImpl extends ServiceImpl<LearnTimeMapper, LearnTime
     private final int video = 2;
     private final int audio = 3;
 
-    @Autowired
-    private RedisUtil redisUtil;
-
     @Override
-    public Boolean updateTime(Integer time, Integer type) {
-        Integer usersId = (Integer) redisUtil.get(SecurityUtils.getSubject().getPrincipal().toString());
+    public Boolean updateTime(Integer time, Integer type, Integer usersId) {
         switch (type){
             case pic: return baseMapper.updatePicDay(time, usersId);
             case video: return baseMapper.updateVideoDay(time, usersId);
             case audio: return baseMapper.updateAudioDay(time, usersId);
+            default: return false;
         }
-        return false;
     }
 
     @Override

@@ -32,6 +32,9 @@ public class CourseList {
     @ApiModelProperty("是否完结")
     private Boolean  isOver;
 
+    @ApiModelProperty("课程标签")
+    private Integer courseLabel;
+
     public String  getIsOver() {
         try {
             if (isOver) {
@@ -40,6 +43,19 @@ public class CourseList {
                 return "未完结";
             }
         }catch (Exception e) {
+            return "";
+        }
+    }
+
+    public String getCourseLabel(){
+        try {
+            switch (courseLabel) {
+                case 1: return "VIP";
+                case 2: return "NEW";
+                case 3: return "HOT";
+                default: return "";
+            }
+        } catch (Exception e) {
             return "";
         }
     }

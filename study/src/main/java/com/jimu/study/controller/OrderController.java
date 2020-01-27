@@ -1,24 +1,30 @@
 package com.jimu.study.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.jimu.study.common.HttpResult;
+import com.jimu.study.common.WechatConstants;
+import com.jimu.study.common.WechatPay;
 import com.jimu.study.enums.OrderStatusEnum;
 import com.jimu.study.model.*;
 import com.jimu.study.model.vo.OrdersVO;
 import com.jimu.study.model.vo.VipOrderVO;
 import com.jimu.study.service.*;
-import com.jimu.study.utils.ListCopyUtil;
-import com.jimu.study.utils.PasswordUtil;
-import com.jimu.study.utils.RedisUtil;
+import com.jimu.study.utils.*;
 import io.swagger.annotations.ApiOperation;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.SecurityUtils;
+import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author hxt
@@ -45,36 +51,43 @@ public class OrderController {
     @Autowired
     private RedisUtil redisUtil;
 
+    final private String signType = WechatConstants.SING_MD5;
+
     @ApiOperation(value = "创建课程订单信息", notes = "isCreate=0为预览，不等于0为创建")
     @PostMapping("/createOrder")
-    public OrdersVO createOrder(@RequestParam("courseId") Integer courseId,
-                              @RequestParam("isCreate") Integer isCreate){
+    @RequiresAuthentication
+    public HttpResult<OrdersVO> createOrder(@RequestParam("courseId") Integer courseId,
+                                           @RequestParam("isCreate") Integer isCreate,
+                                            HttpServletRequest request) {
+        String token = request.getHeader("cok");
         Course course = courseService.findOneCourse(courseId);
         String free = "0.00";
-        if(free.equals(course.getCoursePrice().toString())){
-            //TODO 返回错误信息
-            return null;
+        if (free.equals(course.getCoursePrice().toString())) {
+            return HttpResult.error("课程为免费，不用购买");
         }
         Orders orders = new Orders();
         orders.setCourseId(courseId);
         orders.setOrderNo(PasswordUtil.orderNum());
-        orders.setUsersId((Integer) redisUtil.get(SecurityUtils.getSubject().getPrincipal().toString()));
+        orders.setUsersId((Integer) redisUtil.get(JwtUtil.getUsername(token)));
         orders.setOrderPrice(course.getCoursePrice());
         OrdersVO ordersVO = new OrdersVO();
         BeanUtils.copyProperties(orders, ordersVO);
         ordersVO.setOrderName("购买商品【" + course.getCourseName() + "】");
-        if(isCreate != 0){
+        if (isCreate != 0) {
             Integer orderId = orderService.insertOrder(orders);
             ordersVO.setOrderId(orderId);
         }
-        return ordersVO;
+        return HttpResult.ok(ordersVO);
     }
 
     @ApiOperation(value = "返回课程订单列表", notes = "1为已付款，2为已取消，3为未核销，4为未付款")
     @GetMapping("/findOrders")
-    public List<OrdersVO> findAllOrders(@RequestParam("condition") Integer condition){
+    @RequiresAuthentication
+    public HttpResult<List<OrdersVO>> findAllOrders(@RequestParam("condition") Integer condition,
+                                                    HttpServletRequest request) {
+        String token = request.getHeader("cok");
         QueryWrapper<Orders> qw = new QueryWrapper<>();
-        qw.eq("users_id", redisUtil.get(SecurityUtils.getSubject().getPrincipal().toString()));
+        qw.eq("users_id", redisUtil.get(JwtUtil.getUsername(token)));
         qw.eq(OrderStatusEnum.NO_PAY.getStatus().equals(condition), "is_pay", false);
         qw.eq(OrderStatusEnum.IS_PAY.getStatus().equals(condition), "is_pay", true);
         qw.eq(OrderStatusEnum.IS_CANCEL.getStatus().equals(condition), "is_cancel", true);
@@ -86,65 +99,112 @@ public class OrderController {
             Course course = courseService.findOneCourse(obj.getCourseId());
             obj.setOrderName("购买商品【" + course.getCourseName() + "】");
         });
-        return ordersVos;
+        return HttpResult.ok(ordersVos);
     }
 
     @ApiOperation("付款接口")
-    @PostMapping("/payForCourse")
-    public String payForCourse(@RequestParam("orderId") Integer orderId){
+    @RequestMapping("/payForCourse")
+    public HttpResult<Object> payForCourse(HttpServletRequest request, HttpServletResponse response) throws Exception {
         //TODO 付款操作
-        orderService.payOrder(orderId);
-        return "付款成功";
+        Integer bool = 0;
+        //商户订单号
+        String outTradeNo = null;
+        String xmlContent = "<xml>" +
+                "<return_code><![CDATA[FAIL]]></return_code>" +
+                "<return_msg><![CDATA[签名失败]]></return_msg>" +
+                "</xml>";
+        try {
+            String requstXml = WechatPayUtil.getStreamString(request.getInputStream());
+            System.out.println("requstXml : " + requstXml);
+            Map<String,String> map = WechatPayUtil.xmlToMap(requstXml);
+            String returnCode = map.get(WechatConstants.RETURN_CODE);
+            //校验一下
+            if (StringUtils.isNotBlank(returnCode) && StringUtils.equals(returnCode, "SUCCESS") && WechatPayUtil.isSignatureValid(map, WechatPay.API_KEY, signType)) {
+                //商户订单号
+                outTradeNo = map.get("out_trade_no");
+                System.out.println("outTradeNo : "+ outTradeNo);
+                //微信支付订单号
+                String transactionId = map.get("transaction_id");
+                System.out.println("transactionId : "+ transactionId);
+                //支付完成时间
+                SimpleDateFormat payFormat= new SimpleDateFormat("yyyyMMddHHmmss");
+                Date payDate = payFormat.parse(map.get("time_end"));
+
+                SimpleDateFormat systemFormat= new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                System.out.println("支付时间：" + systemFormat.format(payDate));
+                Integer orderId = (Integer) redisUtil.get(outTradeNo);
+                //TODO payOrder获取不到usersId
+                bool = orderService.payOrder(orderId);
+                redisUtil.del(outTradeNo);
+                xmlContent = "<xml>" +
+                        "<return_code><![CDATA[SUCCESS]]></return_code>" +
+                        "<return_msg><![CDATA[OK]]></return_msg>" +
+                        "</xml>";
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        WechatPayUtil.responsePrint(response, xmlContent);
+        if (bool == 1) {
+            return HttpResult.ok("付款成功");
+        } else {
+            return HttpResult.error("付款失败");
+        }
     }
 
     @ApiOperation("取消课程订单")
     @PostMapping("/cancelOrder")
-    public String cancelOrder(@RequestParam("orderId") Integer orderId){
+    @RequiresAuthentication
+    public HttpResult<Object> cancelOrder(@RequestParam("orderId") Integer orderId) {
         Orders orders = orderService.findOneOrder(orderId);
-        if(orders.getIsPay()){
-            return "已付款，无法取消，不接受退款";
+        if (orders.getIsPay()) {
+            return HttpResult.error("已付款，无法取消，不接受退款");
         }
         try {
             orderService.cancelOrder(orderId);
-            return "成功";
-        }catch (Exception e){
-            return "取消订单失败";
+            return HttpResult.ok("成功");
+        } catch (Exception e) {
+            return HttpResult.error("取消订单失败");
         }
     }
 
     @ApiOperation("核销课程订单")
     @PostMapping("/auditOrder")
-    public String auditOrder(@RequestParam("orderId") Integer orderId){
+    @RequiresAuthentication
+    public HttpResult<Object> auditOrder(@RequestParam("orderId") Integer orderId) {
         Orders orders = orderService.findOneOrder(orderId);
-        if(!orders.getIsPay()){
-            return "未付款，不能核销，请先付款f";
+        if (!orders.getIsPay()) {
+            return HttpResult.error("未付款，不能核销，请先付款");
         }
         try {
             orderService.auditOrder(orderId);
-            return "成功";
-        }catch (Exception e){
-            return "核销订单失败";
+            return HttpResult.ok("成功");
+        } catch (Exception e) {
+            return HttpResult.error("核销订单失败");
         }
     }
 
     @ApiOperation("删除课程订单")
     @DeleteMapping("/deleteOrder")
-    public String deleteOrder(@RequestParam("orderId") Integer orderId){
+    @RequiresAuthentication
+    public HttpResult<Object> deleteOrder(@RequestParam("orderId") Integer orderId) {
         try {
             orderService.deleteOrder(orderId);
-            return "成功";
-        }catch (Exception e){
-            return "删除订单失败";
+            return HttpResult.ok("成功");
+        } catch (Exception e) {
+            return HttpResult.error("删除订单失败");
         }
     }
 
     @ApiOperation("返回VIP订单列表")
     @GetMapping("/findVipOrder")
-    public List<VipOrderVO> findVipOrder(){
+    @RequiresAuthentication
+    public HttpResult<List<VipOrderVO>> findVipOrder(HttpServletRequest request) {
+        String token = request.getHeader("cok");
         try {
-            List<VipOrder> vipOrders = vipOrderService.findVipOrderByUsersId((Integer) redisUtil.get(SecurityUtils.getSubject().getPrincipal().toString()));
+            List<VipOrder> vipOrders = vipOrderService.findVipOrderByUsersId((Integer) redisUtil.get(JwtUtil.getUsername(token)));
             List<VipOrderVO> vipOrderVos = new ArrayList<>();
-            for(VipOrder vipOrder: vipOrders){
+            for (VipOrder vipOrder: vipOrders) {
                 VipType vipType = vipTypeService.findVipById(vipOrder.getVipId());
                 VipOrderVO vipOrderVO = new VipOrderVO();
                 vipOrderVO.setCreateTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(vipOrder.getCreateTime()));
@@ -152,40 +212,45 @@ public class OrderController {
                 vipOrderVO.setVipPrice(vipType.getVipPrice());
                 vipOrderVos.add(vipOrderVO);
             }
-            return vipOrderVos;
-        }catch (NullPointerException e){
-            return null;
+            return HttpResult.ok(vipOrderVos);
+        } catch (NullPointerException e) {
+            return HttpResult.error("空指针");
         }
     }
 
     @ApiOperation("返回VIP订单详情")
     @GetMapping("/createVipOrder")
-    public OrdersVO createVipOrder(@RequestParam("vipId") Integer vipId){
+    @RequiresAuthentication
+    public HttpResult<OrdersVO> createVipOrder(@RequestParam("vipId") Integer vipId) {
         VipType vipType = vipTypeService.findVipById(vipId);
         OrdersVO ordersVO = new OrdersVO();
         ordersVO.setOrderName("购买商品【" + vipType.getVipName() + "】");
         ordersVO.setOrderNo(PasswordUtil.orderNum());
         ordersVO.setOrderPrice(vipType.getVipPrice());
         ordersVO.setCreateTime(new Date());
-        return ordersVO;
+        return HttpResult.ok(ordersVO);
     }
 
     @ApiOperation("购买vip")
     @PostMapping("/buyVip")
-    public void buyVip(@RequestParam("vipId") Integer vipId){
-        Integer usersId = (Integer) redisUtil.get(SecurityUtils.getSubject().getPrincipal().toString());
+    @RequiresAuthentication
+    public HttpResult<Object> buyVip(@RequestParam("vipId") Integer vipId,
+                                     HttpServletRequest request) {
+        String token = request.getHeader("cok");
+        Integer usersId = (Integer) redisUtil.get(JwtUtil.getUsername(token));
         //TODO 支付
         //判断是否付款成功
-        if(true){
+        if (true) {
             VipType vipType = vipTypeService.findVipById(vipId);
             Users users = new Users();
             users.setUsersId(usersId);
             users.setVipId(vipId);
-            Date date = new Date(System.currentTimeMillis() + vipType.getVipTime()*24*60*60*1000);
+            Date date = new Date(System.currentTimeMillis() + vipType.getVipTime() * 24 * 60 * 60 * 1000);
             users.setUsersVip(date);
             usersService.updateUsers(users);
             vipOrderService.insert(vipId, usersId);
-            //TODO 需要返回一个值
+            return HttpResult.ok();
         }
+        return HttpResult.ok();
     }
 }

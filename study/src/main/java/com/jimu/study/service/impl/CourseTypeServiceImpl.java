@@ -27,7 +27,7 @@ public class CourseTypeServiceImpl extends ServiceImpl<CourseTypeMapper, CourseT
     }
 
     @Override
-    public List<Map<String, Object>> findAllCourseType(QueryWrapper<CourseType> qw) {
-        return baseMapper.selectMaps(qw);
+    public List<CourseType> findAllCourseType(QueryWrapper<CourseType> qw) {
+        return baseMapper.selectList(qw);
     }
 }

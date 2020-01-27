@@ -10,6 +10,8 @@ import com.jimu.study.model.vo.CourseList;
 import com.jimu.study.service.CourseService;
 import org.springframework.stereotype.Service;
 
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -29,7 +31,12 @@ public class CourseServiceImpl extends ServiceImpl<CourseMapper, Course> impleme
     }
 
     @Override
-    public IPage<Course> findCoursesPage(IPage<Course> page, QueryWrapper<Course> qw) {
+    public List<CourseList> findCoursesList(Integer typeId, Integer start, Integer size) {
+        return baseMapper.selectCourseList(typeId, start, size);
+    }
+
+    @Override
+    public IPage<Course> findCoursesPage(Page<Course> page, QueryWrapper<Course> qw) {
         return baseMapper.selectPage(page, qw);
     }
 
@@ -49,14 +56,14 @@ public class CourseServiceImpl extends ServiceImpl<CourseMapper, Course> impleme
     public List<CourseList> newestCourse() {
         Page<CourseList> page = new Page<>(1, 3);
         QueryWrapper<Course> qw = new QueryWrapper<>();
-        qw.orderByDesc("update_time");
+        qw.eq("course_label", 2);
         return baseMapper.searchCourse(qw, page);
     }
 
     @Override
     public List<CourseList> hotCourse(IPage<CourseList> page) {
         QueryWrapper<CourseList> qw = new QueryWrapper<>();
-        qw.orderByDesc("study_num");
+        qw.eq("course_label", 3);
         return baseMapper.searchCourse(qw, page);
     }
 
@@ -66,5 +73,21 @@ public class CourseServiceImpl extends ServiceImpl<CourseMapper, Course> impleme
         qw.orderByAsc("course_price");
         qw.gt("course_price", 0);
         return baseMapper.searchCourse(qw, page);
+    }
+
+    @Override
+    public void updateNewest() {
+        baseMapper.emptyLabel();
+        Calendar c = Calendar.getInstance();
+        c.add(Calendar.DATE, + 7);
+        Date time = c.getTime();
+        QueryWrapper<Course> qw = new QueryWrapper<>();
+        qw.lt("update_time", time);
+        baseMapper.updateNewest(qw);
+    }
+
+    @Override
+    public void updateHotest() {
+        baseMapper.updateHotest();
     }
 }

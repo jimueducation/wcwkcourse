@@ -1,21 +1,38 @@
 package com.jimu.study.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.jimu.study.common.HttpResult;
 import com.jimu.study.model.Users;
+import com.jimu.study.model.vo.UsersInformation;
 import com.jimu.study.service.UsersService;
+import com.jimu.study.utils.JwtUtil;
 import com.jimu.study.utils.RedisUtil;
 import io.swagger.annotations.ApiOperation;
 import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authc.UsernamePasswordToken;
+import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.apache.shiro.crypto.hash.Md5Hash;
 import org.apache.shiro.subject.Subject;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import javax.annotation.Resource;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * @author hxt
@@ -24,100 +41,159 @@ import java.util.Map;
 @RequestMapping("/users")
 public class UsersController {
 
+    private static String UPLOAD_FOLDER = "E:\\QMDownload\\study\\video";
+
     @Autowired
     private UsersService usersService;
 
-    @Resource
+    @Autowired
     private RedisUtil redisUtil;
 
     @ApiOperation(value = "用户登录接口")
     @PostMapping("/login")
-    public Object  login(@RequestParam("username") String username,
-                         @RequestParam("password") String password){
+    public HttpResult<Object> login(@RequestParam("username") String username,
+                                    @RequestParam("password") String password) {
         QueryWrapper<Users> qw = new QueryWrapper<>();
         qw.eq("users_name", username);
-        List<Users> users = usersService.findUserList(qw);
-        if(users.isEmpty()){
-            return "账号不存在";
-        }else if(users.size() == 1){
-            String salt = users.get(0).getUsersSalt();
-            Subject subject = SecurityUtils.getSubject();
+        Users users = usersService.getOne(qw);
+        if (users == null) {
+            return HttpResult.ok("账号不存在");
+        } else {
+            String salt = users.getUsersSalt();
             try {
-                subject.login(new UsernamePasswordToken(username, new Md5Hash(password, salt, 1).toHex()));
-                redisUtil.set(SecurityUtils.getSubject().getPrincipal().toString(), users.get(0).getUsersId());
+                redisUtil.set(username, users.getUsersId());
                 Map<String, String> userVo = new HashMap<>(0);
-                userVo.put("usersId", users.get(0).getUsersId().toString());
-                userVo.put("usersNick", users.get(0).getUsersNick());
-                userVo.put("usersIcon", users.get(0).getUsersIcon());
-                return userVo;
-            }catch (Exception e){
-                return "密码错误";
+                userVo.put("usersId", users.getUsersId().toString());
+                userVo.put("usersNick", users.getUsersNick());
+                userVo.put("usersIcon", users.getUsersIcon());
+                userVo.put("cookie", JwtUtil.sign(username, new Md5Hash(password, salt, 1).toHex()));
+                return HttpResult.ok(userVo);
+            } catch (Exception e) {
+                return HttpResult.ok("密码错误");
             }
         }
-        return "数据库错误";
     }
 
     @ApiOperation(value = "用户注册接口")
     @PostMapping("/register")
-    public String register(@RequestParam("username") String username,
-                           @RequestParam("password") String password){
+    /** @PostMapping("/") */
+    public HttpResult<Object> register(@RequestParam("username") String username,
+                           @RequestParam("password") String password) {
         QueryWrapper<Users> qw = new QueryWrapper<>();
         qw.like("users_name", username);
         List<Users> user = usersService.findUserList(qw);
-        if(user.isEmpty()){
+        if (user.isEmpty()) {
             usersService.registerUser(username, password);
-            return "注册成功";
-        }else{
-            return "账号已存在";
+            return HttpResult.ok("注册成功");
+        } else {
+            return HttpResult.ok("账号已存在");
         }
     }
 
     @ApiOperation(value = "用户退出登录")
     @PostMapping("/logout")
-    public String  logout(){
+    @RequiresAuthentication
+    public HttpResult<Object>  logout(HttpServletRequest request, HttpServletResponse response) {
         try {
-            Subject subject = SecurityUtils.getSubject();
-            redisUtil.del(SecurityUtils.getSubject().getPrincipal().toString());
-            subject.logout();
-            return "登出成功";
-        }catch (Exception e){
+            String token = request.getHeader("cok");
+            redisUtil.del(JwtUtil.getUsername(token));
+            return HttpResult.ok("登出成功");
+        } catch (Exception e) {
             e.printStackTrace();
-            return "登出失败";
+            return HttpResult.error("登出失败");
         }
+    }
+
+    @ApiOperation("返回用户的基本资料")
+    @GetMapping("/getUsersInformation")
+    @RequiresAuthentication
+    /** @GetMapping("/") */
+    public HttpResult<UsersInformation> getUsersInformation(HttpServletRequest request) {
+        String token = request.getHeader("cok");
+        Integer usersId = (Integer) redisUtil.get(JwtUtil.getUsername(token));
+        Users users = usersService.getById(usersId);
+        UsersInformation usersInformation = new UsersInformation();
+        BeanUtils.copyProperties(users, usersInformation);
+        return HttpResult.ok(usersInformation);
     }
 
     @ApiOperation(value = "修改用户基本资料接口")
     @PostMapping("update")
-    public String update(@RequestBody Users users){
-        users.setUsersId((Integer) redisUtil.get(SecurityUtils.getSubject().getPrincipal().toString()));
+    @RequiresAuthentication
+    /** @PutMapping("/") */
+    public HttpResult<Object> update(@RequestBody Users users,
+                                     HttpServletRequest request) {
+        String token = request.getHeader("cok");
+        users.setUsersId((Integer) redisUtil.get(JwtUtil.getUsername(token)));
         QueryWrapper<Users> qw = new QueryWrapper<>();
         qw.eq("users_id", users.getUsersId());
-        if(usersService.findUserList(qw).isEmpty()){
-            return "账号不存在";
-        }else{
+        List<Users> user = usersService.findUserList(qw);
+        if (user.isEmpty()) {
+            return HttpResult.ok("账号不存在");
+        } else {
             try {
+                users.setUsersSalt(user.get(0).getUsersSalt());
+                users.setUsersIcon(user.get(0).getUsersIcon());
                 usersService.updateUsers(users);
-                return "修改成功";
-            }catch (Exception e){
-                return "发生未知错误";
+                return HttpResult.ok("修改成功");
+            } catch (Exception e) {
+                return HttpResult.error("发生未知错误");
             }
+        }
+    }
+
+    @ApiOperation("上传用户头像")
+    @PostMapping("/uploadIcon")
+    @RequiresAuthentication
+    public HttpResult<Object> fileUpload(@RequestParam("file") MultipartFile srcFile,
+                                         HttpServletRequest request) {
+        String token = request.getHeader("cok");
+        System.out.println(srcFile.getOriginalFilename());
+        if (srcFile.isEmpty()) {
+            return HttpResult.ok("请选择文件");
+        }
+        try {
+            /*String fileName = srcFile.getOriginalFilename();
+            String suffixName = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();*/
+            String newFileName = JwtUtil.getUsername(token) + ".jpg";
+            File destFile = new File(UPLOAD_FOLDER);
+            if (!destFile.exists()) {
+                destFile = new File("");
+            }
+            /*File files = new File(destFile, fileName);
+            srcFile.transferTo(files);*/
+            byte[] bytes = srcFile.getBytes();
+            Path path = Paths.get(destFile.getAbsolutePath() + "/UsersIcon/" + newFileName);
+            Files.write(path, bytes);
+            Users user = new Users();
+            user.setUsersId((Integer) redisUtil.get(JwtUtil.getUsername(token)));
+            user.setUsersIcon("UsersIcon/" + newFileName);
+            usersService.updateUsers(user);
+            Map<String, String> filePath = new HashMap<>(0);
+            filePath.put("filePath", "UsersIcon/" + newFileName);
+            return HttpResult.ok("上传成功", filePath);
+        } catch (IOException e) {
+            return HttpResult.error("上传失败！");
         }
     }
 
     @ApiOperation("删除用户的接口")
     @DeleteMapping("/delete")
-    public String delete(@RequestParam("usersId") Integer usersId){
+    @RequiresAuthentication
+    /** @DeleteMapping("/") */
+    public HttpResult<Object> delete(@RequestParam("usersId") Integer usersId) {
         try {
             usersService.deleteUser(usersId);
-            return "删除成功";
-        }catch (Exception e){
-            return "发生未知错误";
+            return HttpResult.ok("删除成功");
+        } catch (Exception e) {
+            return HttpResult.error("发生未知错误");
         }
     }
 
     @ApiOperation(value = "保留，shiro拦截后暂时访问这个接口")
-    @GetMapping("/error")
-    public String error(){
-        return "请先登录";
+    @RequestMapping("/error")
+    public HttpResult<Object> error() {
+        System.out.println("error");
+        return HttpResult.ok("请先登录");
     }
 }

@@ -2,6 +2,7 @@ package com.jimu.study.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.jimu.study.model.Course;
 import com.jimu.study.model.vo.CourseList;
@@ -20,7 +21,9 @@ public interface CourseService extends IService<Course> {
     Integer updateCourse(Course course);
 
     /**分页*/
-    IPage<Course> findCoursesPage(IPage<Course> page, QueryWrapper<Course> qw);
+    List<CourseList> findCoursesList(Integer typeId, Integer start, Integer size);
+
+    IPage<Course> findCoursesPage(Page<Course> page, QueryWrapper<Course> qw);
 
     /**根据ID精准查找课程信息*/
     Course findOneCourse(Integer courseId);
@@ -36,4 +39,10 @@ public interface CourseService extends IService<Course> {
 
     /**根据价格*/
     List<CourseList> priceUpCourse(IPage<CourseList> page);
+
+    /**更新最新课程*/
+    void updateNewest();
+
+    /**更新热门课程*/
+    void updateHotest();
 }

@@ -2,6 +2,7 @@ package com.jimu.study.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jimu.study.common.HttpResult;
 import com.jimu.study.model.Course;
 import com.jimu.study.model.Teacher;
 import com.jimu.study.model.vo.CourseList;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -26,6 +28,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/teacher")
 public class TeacherController {
+
+    private static Integer firstSize = 8;
 
     @Autowired
     private TeacherService teacherService;
@@ -38,12 +42,14 @@ public class TeacherController {
 
     @ApiOperation("根据ID返回讲师详细信息")
     @GetMapping("/findTeacherById")
-    public TeacherVO findTeacherById(@RequestParam("teacherId") Integer teacherId){
+    public HttpResult<TeacherVO> findTeacherById(@RequestParam("teacherId") Integer teacherId,
+                                                 @RequestParam("pageSize") Integer pageSize,
+                                                 @RequestParam("pageCurrent") Integer pageCurrent) {
         Teacher teacher = teacherService.findTeacherById(teacherId);
         TeacherVO teacherVO = new TeacherVO();
         BeanUtils.copyProperties(teacher, teacherVO);
 
-        Page<Course> page = new Page<>(1, 10);
+        Page<Course> page = new Page<>(pageCurrent, pageSize);
         QueryWrapper<Course> qw = new QueryWrapper<>();
         qw.eq("teacher_id", teacherId);
         List<Course> courses = courseService.findCoursesPage(page, qw).getRecords();
@@ -51,6 +57,6 @@ public class TeacherController {
         List<CourseList> courseLists = ListCopyUtil.copyCourseListToVo(courses);
         teacherVO.setCourseLists(courseLists);
         teacherVO.setStudyNum(folderService.teacherStudyNum(teacherVO.getCourseLists()));
-        return teacherVO;
+        return HttpResult.ok(teacherVO);
     }
 }

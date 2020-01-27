@@ -1,5 +1,6 @@
 package com.jimu.study.controller;
 
+import com.jimu.study.common.HttpResult;
 import com.jimu.study.model.VipType;
 import com.jimu.study.service.VipTypeService;
 import io.swagger.annotations.ApiOperation;
@@ -19,13 +20,13 @@ public class VipTypeController {
     private VipTypeService vipTypeService;
 
     @PostMapping("/insert")
-    public Integer insert(@RequestBody VipType vipType){
-        return vipTypeService.insert(vipType);
+    public HttpResult<Object> insert(@RequestBody VipType vipType) {
+        return HttpResult.ok(vipTypeService.insert(vipType));
     }
 
     @ApiOperation("返回VIP列表")
     @GetMapping("/findVipList")
-    public List<VipType> findVipList(){
-        return vipTypeService.findVipList();
+    public HttpResult<List<VipType>> findVipList() {
+        return HttpResult.ok(vipTypeService.findVipList());
     }
 }

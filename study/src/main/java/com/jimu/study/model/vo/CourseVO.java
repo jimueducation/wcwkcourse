@@ -4,6 +4,7 @@ import com.jimu.study.model.Course;
 import com.jimu.study.model.Teacher;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.List;
 
@@ -11,6 +12,7 @@ import java.util.List;
  * @author hxt
  */
 @Data
+@EqualsAndHashCode(callSuper = false)
 public class CourseVO extends Course {
 
     private Boolean isOver;
@@ -21,10 +23,10 @@ public class CourseVO extends Course {
     @ApiModelProperty("课程的目录")
     private List<CourseContentVO> courseContent;
 
-    public String getisOver(){
-        if (isOver){
+    public String getisOver() {
+        if (isOver) {
             return "已完结";
-        }else{
+        } else {
             return "未完结";
         }
     }
