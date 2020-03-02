@@ -26,7 +26,7 @@ public class UsersServiceImpl extends ServiceImpl<UsersMapper, Users> implements
         users.setUsersSalt(salt);
         users.setUsersPassword(PasswordUtil.encode(password, salt));
         users.setUsersVip(new Date());
-        users.setUsersIcon("192.168.0.100:9001/defaultIcon.jpg");
+        users.setUsersIcon("defaultIcon.jpg");
         baseMapper.insert(users);
         return users.getUsersId();
     }
