@@ -27,7 +27,7 @@ public interface OrderService extends IService<Orders> {
     Integer deleteOrder(Integer orderId);
 
     /**付款*/
-    Integer payOrder(Integer orderId);
+    Integer payOrder(String orderNo);
 
     /**返回一个订单信息*/
     Orders findOneOrder(Integer orderId);

@@ -60,11 +60,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
 
     @Override
     @Transactional
-    public Integer payOrder(Integer orderId) {
-        Orders orders = baseMapper.selectById(orderId);
+    public Integer payOrder(String orderNo) {
+        Orders orders = baseMapper.selectByNo(orderNo);
         orders.setIsPay(true);
         baseMapper.updateById(orders);
-        folderService.insertFolder((Integer) redisUtil.get(SecurityUtils.getSubject().getPrincipal().toString()), orders.getCourseId(), FolderEnum.BUIED.getType());
+        folderService.insertFolder(orders.getUsersId(), orders.getCourseId(), FolderEnum.BUIED.getType());
         //暂时返回1
         return 1;
     }

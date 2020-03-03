@@ -23,6 +23,7 @@ public class JwtUtil {
     public static boolean verify(String token, String username, String secret) {
         try {
             Algorithm algorithm = Algorithm.HMAC256(secret);
+            System.out.println("algorithm: " + algorithm);
             JWTVerifier verifier = JWT.require(algorithm)
                     .withClaim("username", username)
                     .build();
@@ -49,6 +50,7 @@ public class JwtUtil {
     public static String sign(String username, String secret) {
         Date date = new Date(System.currentTimeMillis() + EXPIRE_TIME);
         Algorithm algorithm = Algorithm.HMAC256(secret);
+        System.out.println("algorithm: " + algorithm);
         return JWT.create()
                 .withClaim("username", username)
                 .withExpiresAt(date)

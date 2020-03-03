@@ -29,6 +29,6 @@ public class WechatPayController {
     public void payUrl(HttpServletRequest request,
                        HttpServletResponse response,
                        @RequestParam(value = "orderId") Integer orderId) throws Exception {
-        WechatPayUtil.writerPayImage(response, wechatPayService.wxPayUrl(orderId, PasswordUtil.orderNum(), signType));
+        WechatPayUtil.writerPayImage(response, wechatPayService.wxPayUrl(orderId, signType));
     }
 }

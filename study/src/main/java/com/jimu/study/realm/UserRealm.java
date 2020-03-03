@@ -48,7 +48,7 @@ public class UserRealm extends AuthorizingRealm {
         if (user == null) {
             throw new UnknownAccountException("没找到用户");
         }
-        if (!JwtUtil.verify(token, username, user.getUsersPassword())) {
+        if (JwtUtil.verify(token, username, user.getUsersPassword())) {
             throw new AuthenticationException("Username or password error");
         }
         return new SimpleAuthenticationInfo(token, token, "user_realm");

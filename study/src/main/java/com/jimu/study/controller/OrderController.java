@@ -134,7 +134,7 @@ public class OrderController {
                 System.out.println("支付时间：" + systemFormat.format(payDate));
                 Integer orderId = (Integer) redisUtil.get(outTradeNo);
                 //TODO payOrder获取不到usersId
-                bool = orderService.payOrder(orderId);
+                bool = orderService.payOrder(outTradeNo);
                 redisUtil.del(outTradeNo);
                 xmlContent = "<xml>" +
                         "<return_code><![CDATA[SUCCESS]]></return_code>" +

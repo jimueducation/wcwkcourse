@@ -36,8 +36,9 @@ public class WechatPayServiceImpl implements WechatPayService {
     private CourseService courseService;
 
     @Override
-    public String wxPayUrl(Integer orderId, String outTradeNo, String signType) throws Exception {
+    public String wxPayUrl(Integer orderId, String signType) throws Exception {
         Orders orders = orderService.findOneOrder(orderId);
+        String outTradeNo = orders.getOrderNo();
         Course course = courseService.findOneCourse(orders.getCourseId());
         HashMap<String, String> data = new HashMap<String, String>();
         //公众账号ID
@@ -53,7 +54,7 @@ public class WechatPayServiceImpl implements WechatPayService {
         //标价币种
         data.put("fee_type","CNY");
         //标价金额
-        data.put("total_fee",String.valueOf(Math.round(orders.getOrderPrice().intValue() * 100)));
+        data.put("total_fee",String.valueOf(Math.round(orders.getOrderPrice().floatValue() * 100)));
         //用户的IP
         data.put("spbill_create_ip", WechatPay.CREATE_IP);
         //通知地址
