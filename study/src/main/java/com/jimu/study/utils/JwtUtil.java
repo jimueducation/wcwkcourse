@@ -14,7 +14,7 @@ import java.util.Date;
  */
 public class JwtUtil {
 
-    private static final long EXPIRE_TIME = 180 * 60 * 1000;
+    private static final long EXPIRE_TIME = 180 * 60 * 1000000;
 
         /** 校验token
          * @param token 密钥
@@ -23,13 +23,13 @@ public class JwtUtil {
     public static boolean verify(String token, String username, String secret) {
         try {
             Algorithm algorithm = Algorithm.HMAC256(secret);
-            System.out.println("algorithm: " + algorithm);
             JWTVerifier verifier = JWT.require(algorithm)
                     .withClaim("username", username)
                     .build();
             DecodedJWT jwt = verifier.verify(token);
             return true;
         } catch (Exception e) {
+            e.printStackTrace();
             return false;
         }
     }
@@ -50,7 +50,6 @@ public class JwtUtil {
     public static String sign(String username, String secret) {
         Date date = new Date(System.currentTimeMillis() + EXPIRE_TIME);
         Algorithm algorithm = Algorithm.HMAC256(secret);
-        System.out.println("algorithm: " + algorithm);
         return JWT.create()
                 .withClaim("username", username)
                 .withExpiresAt(date)

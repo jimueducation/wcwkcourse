@@ -22,7 +22,7 @@ public class WechatPay {
     public static final String CREATE_IP = "127.0.0.1";
 
     /** 回调地址（需要外网可以访问的IP） */
-    public static final String  NOTIFY_URL = "server.natappfree.cc:34698/order/payForCourse";
+    public static final String  NOTIFY_URL = "server.natappfree.cc:46006/order/payForCourse";
 
     /** 微信统一下单接口 */
     public static final String UFDODER_URL = "https://api.mch.weixin.qq.com/pay/unifiedorder";

@@ -8,7 +8,7 @@ import javax.net.ssl.TrustManager;
 import java.io.OutputStream;
 import java.net.URL;
 
-import com.jimu.study.utils.WechatPayUtil;
+import com.jimu.study.utils.WechatUtil;
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -119,7 +119,7 @@ public class HttpsClient {
                 //开始连接
                 httpsUrlConnection.connect();
             }
-            response = WechatPayUtil.getStreamString(httpsUrlConnection.getInputStream());
+            response = WechatUtil.getStreamString(httpsUrlConnection.getInputStream());
         }catch (Exception e){
             throw new Exception();
         }finally {

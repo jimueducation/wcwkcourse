@@ -8,14 +8,11 @@ import com.jimu.study.model.Orders;
 import com.jimu.study.service.CourseService;
 import com.jimu.study.service.OrderService;
 import com.jimu.study.service.WechatPayService;
-import com.jimu.study.utils.PasswordUtil;
 import com.jimu.study.utils.RedisUtil;
-import com.jimu.study.utils.WechatPayUtil;
-import org.apache.shiro.SecurityUtils;
+import com.jimu.study.utils.WechatUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,7 +43,7 @@ public class WechatPayServiceImpl implements WechatPayService {
         //商户号
         data.put("mch_id", WechatPay.MCH_ID);
         //随机字符串
-        data.put("nonce_str", WechatPayUtil.getNonceStr());
+        data.put("nonce_str", WechatUtil.getNonceStr());
         //商品描述
         data.put("body", "购买商品【" + course.getCourseName() + "】");
         //商户订单号
@@ -64,11 +61,11 @@ public class WechatPayServiceImpl implements WechatPayService {
         //签名类型
         data.put("sign_type",signType);
         //签名
-        data.put("sign", WechatPayUtil.getSignature(data, WechatPay.API_KEY, signType));
+        data.put("sign", WechatUtil.getSignature(data, WechatPay.API_KEY, signType));
 
-        String requestXML = WechatPayUtil.mapToXml(data);
+        String requestXML = WechatUtil.mapToXml(data);
         String reponseString = HttpsClient.httpsRequestReturnString(WechatConstants.PAY_UNIFIEDORDER, HttpsClient.METHOD_POST, requestXML);
-        Map<String, String> resultMap = WechatPayUtil.processResponseXml(reponseString, signType);
+        Map<String, String> resultMap = WechatUtil.processResponseXml(reponseString, signType);
         if (resultMap.get(WechatConstants.RETURN_CODE).equals("SUCCESS")) {
             if (resultMap.get("code_url").isEmpty()) {
                 redisUtil.set(outTradeNo, orderId);

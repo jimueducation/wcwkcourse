@@ -1,7 +1,9 @@
 package com.jimu.study.controller;
 
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.jimu.study.common.HttpResult;
+import com.jimu.study.common.HttpsClient;
 import com.jimu.study.model.Users;
 import com.jimu.study.model.vo.UsersInformation;
 import com.jimu.study.service.UsersService;
@@ -60,7 +62,8 @@ public class UsersController {
             return HttpResult.ok("账号不存在");
         } else {
             String salt = users.getUsersSalt();
-            try {
+            password = new Md5Hash(password, salt, 1).toHex();
+            if (users.getUsersPassword().equals(password)){
                 redisUtil.set(username, users.getUsersId());
                 Map<String, String> userVo = new HashMap<>(0);
                 userVo.put("usersId", users.getUsersId().toString());
@@ -68,9 +71,38 @@ public class UsersController {
                 userVo.put("usersIcon", users.getUsersIcon());
                 userVo.put("cookie", JwtUtil.sign(username, new Md5Hash(password, salt, 1).toHex()));
                 return HttpResult.ok(userVo);
-            } catch (Exception e) {
-                return HttpResult.ok("密码错误");
+            } else {
+                return HttpResult.error("密码错误");
             }
+        }
+    }
+
+    @ApiOperation(value = "微信用户快捷登录")
+    @GetMapping("/wechatLogin")
+    public HttpResult<Object> wechatLogin(@RequestParam("code") String code,
+                                          @RequestParam("state") String state,
+                                          HttpServletRequest request){
+        try {
+            String access_token_reponse = HttpsClient.httpsRequestReturnString("https://api.weixin.qq.com/sns/oauth2/access_token?appid=wx0565484d8fa3a4fc&secret=817e51da938aa06b9f247e1356f73a52&code=" + code + "&grant_type=authorization_code", HttpsClient.METHOD_POST, null);
+            JSONObject json =JSONObject.parseObject(access_token_reponse);
+            String refresh = HttpsClient.httpsRequestReturnString("https://api.weixin.qq.com/sns/oauth2/refresh_token?appid=wx0565484d8fa3a4fc&grant_type=refresh_token&refresh_token=" + json.getString("refresh_token"), HttpsClient.METHOD_POST, null);
+            json = JSONObject.parseObject(refresh);
+            String get_information = HttpsClient.httpsRequestReturnString("https://api.weixin.qq.com/sns/userinfo?access_token=" + json.getString("access_token") + "&openid=" + json.getString("openid") + "&lang=zh_CN", HttpsClient.METHOD_GET, null);
+            json = JSONObject.parseObject(get_information);
+            QueryWrapper<Users> qw = new QueryWrapper<>();
+            qw.like("users_name", json.getString("openid"));
+            List<Users> user = usersService.findUserList(qw);
+            if (user.isEmpty()) {
+                register(json.getString("openid"), json.getString("openid"));
+            }
+            Users users = usersService.getOne(qw);
+            users.setUsersIcon(json.getString("headimgurl"));
+            users.setUsersNick(json.getString("nickname"));
+            update(users, request);
+            return login(json.getString("openid"), json.getString("openid"));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return HttpResult.error("登录失败");
         }
     }
 

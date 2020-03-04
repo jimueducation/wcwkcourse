@@ -45,6 +45,7 @@ public class UserRealm extends AuthorizingRealm {
         QueryWrapper<Users> qw = new QueryWrapper<>();
         qw.eq("users_name", username);
         Users user = usersService.getOne(qw);
+        System.out.println(user.toString());
         if (user == null) {
             throw new UnknownAccountException("没找到用户");
         }

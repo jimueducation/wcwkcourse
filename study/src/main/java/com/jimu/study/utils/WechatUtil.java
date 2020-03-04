@@ -34,7 +34,7 @@ import java.util.*;
  * @author hxt
  * @date 2020/1/15 11:27
  */
-public class WechatPayUtil {
+public class WechatUtil {
 
     /**
      * 加密/校验流程如下：

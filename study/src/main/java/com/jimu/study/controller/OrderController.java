@@ -12,7 +12,6 @@ import com.jimu.study.service.*;
 import com.jimu.study.utils.*;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +48,9 @@ public class OrderController {
     private UsersService usersService;
 
     @Autowired
+    private CourseFolderService folderService;
+
+    @Autowired
     private RedisUtil redisUtil;
 
     final private String signType = WechatConstants.SING_MD5;
@@ -64,6 +66,8 @@ public class OrderController {
         String free = "0.00";
         if (free.equals(course.getCoursePrice().toString())) {
             return HttpResult.error("课程为免费，不用购买");
+        } else if (folderService.isBuiedCourse((Integer) redisUtil.get(JwtUtil.getUsername(token)), courseId) != 0) {
+            return HttpResult.error("已购买该课程");
         }
         Orders orders = new Orders();
         orders.setCourseId(courseId);
@@ -114,12 +118,12 @@ public class OrderController {
                 "<return_msg><![CDATA[签名失败]]></return_msg>" +
                 "</xml>";
         try {
-            String requstXml = WechatPayUtil.getStreamString(request.getInputStream());
+            String requstXml = WechatUtil.getStreamString(request.getInputStream());
             System.out.println("requstXml : " + requstXml);
-            Map<String,String> map = WechatPayUtil.xmlToMap(requstXml);
+            Map<String,String> map = WechatUtil.xmlToMap(requstXml);
             String returnCode = map.get(WechatConstants.RETURN_CODE);
             //校验一下
-            if (StringUtils.isNotBlank(returnCode) && StringUtils.equals(returnCode, "SUCCESS") && WechatPayUtil.isSignatureValid(map, WechatPay.API_KEY, signType)) {
+            if (StringUtils.isNotBlank(returnCode) && StringUtils.equals(returnCode, "SUCCESS") && WechatUtil.isSignatureValid(map, WechatPay.API_KEY, signType)) {
                 //商户订单号
                 outTradeNo = map.get("out_trade_no");
                 System.out.println("outTradeNo : "+ outTradeNo);
@@ -144,7 +148,7 @@ public class OrderController {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        WechatPayUtil.responsePrint(response, xmlContent);
+        WechatUtil.responsePrint(response, xmlContent);
         if (bool == 1) {
             return HttpResult.ok("付款成功");
         } else {

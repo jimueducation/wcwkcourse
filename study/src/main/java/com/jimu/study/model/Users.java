@@ -45,7 +45,7 @@ public class Users {
     @ApiModelProperty("用户地址")
     private String usersAddress;
 
-    @ApiModelProperty("用户VIP剩余时间")
+    @ApiModelProperty("用户VIP到期时间")
     private Date usersVip;
 
     @ApiModelProperty("用户加密盐")
